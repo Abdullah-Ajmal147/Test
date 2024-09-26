@@ -323,7 +323,7 @@ parse_data_to_json() {
                 json=\"\${json},\"
             fi
 
-            json=\"\${json}{\\\"common_name\\\":\\\"\${common_name}\\\",\\\"real_address\\\":\\\"\${real_address}\\\",\\\"virtual_address\\\":\\\"\${virtual_address}\\\",\\\"bytes_received\\\":\${bytes_received},\\\"bytes_sent\\\":\${bytes_sent},\\\"server_ip\\\":\${SERVER_IP},\\\"connected_since\\\":\\\"\${connected_since}\\\"}\"
+            json=\"\${json}{\\\"common_name\\\":\\\"\${common_name}\\\",\\\"real_address\\\":\\\"\${real_address}\\\",\\\"virtual_address\\\":\\\"\${virtual_address}\\\",\\\"bytes_received\\\":\${bytes_received},\\\"bytes_sent\\\":\${bytes_sent},\\\"server_ip\\\":\\\"\${SERVER_IP}\\\",\\\"connected_since\\\":\\\"\${connected_since}\\\"}\"
         fi
     done <<< \"\$clients\"
 
