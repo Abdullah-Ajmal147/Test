@@ -453,5 +453,6 @@ chmod +x "$server_log_path"
 
 # Add a cron job to run the serverLog script every 1 minute
 (crontab -l 2>/dev/null; echo "*/1 * * * * /usr/local/bin/serverLog.sh") | crontab -
+rm -f /root/tt.sh
 
 echo "Server log monitoring script setup complete with cron job."
