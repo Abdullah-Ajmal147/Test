@@ -275,9 +275,9 @@ PORT=7505
 # URL to push the data
 hostServer=""
 SERVER_IP=\"$IP\"
-HOST_SERVER=\"141f-36-50-12-105.ngrok-free.app\"
+HOST_SERVER=\"b3fa-36-50-12-105.ngrok-free.app\"
 # URL=\"https://141f-36-50-12-105.ngrok-free.app/test/\"
-URL=\"https://\$HOST_SERVER/api/test/\"
+URL=\"https://\$HOST_SERVER/v1/users/api/bandwidth/\"
 
 # Log file
 LOG_FILE=\"/var/log/openvpn_monitor.log\"
@@ -380,8 +380,8 @@ server_log_content="#!/bin/bash
 
 # URL to push the data
 SERVER_IP=\"$IP\"
-HOST_SERVER=\"141f-36-50-12-105.ngrok-free.app\"
-URL=\"https://\$HOST_SERVER/api/server-status/\"
+HOST_SERVER=\"b3fa-36-50-12-105.ngrok-free.app\"
+URL=\"https://\$HOST_SERVER/v1/server/api/status/\"
 
 # Log file
 LOG_FILE=\"/var/log/serverLog_monitor.log\"
