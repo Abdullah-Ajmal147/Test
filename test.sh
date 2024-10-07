@@ -274,8 +274,9 @@ PORT=7505
 
 # URL to push the data
 hostServer=""
+HOST_SERVER=\"162.243.163.199:8000\"
 SERVER_IP=\"$IP\"
-HOST_SERVER=\"b3fa-36-50-12-105.ngrok-free.app\"
+# HOST_SERVER=\"b3fa-36-50-12-105.ngrok-free.app\"
 # URL=\"https://141f-36-50-12-105.ngrok-free.app/test/\"
 URL=\"https://\$HOST_SERVER/v1/users/api/bandwidth/\"
 
@@ -379,8 +380,9 @@ server_log_path="/usr/local/bin/serverLog.sh"
 server_log_content="#!/bin/bash
 
 # URL to push the data
+HOST_SERVER=\"162.243.163.199:8000\"
 SERVER_IP=\"$IP\"
-HOST_SERVER=\"b3fa-36-50-12-105.ngrok-free.app\"
+# HOST_SERVER=\"b3fa-36-50-12-105.ngrok-free.app\"
 URL=\"https://\$HOST_SERVER/v1/server/api/status/\"
 
 # Log file
