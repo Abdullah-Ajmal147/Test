@@ -171,7 +171,7 @@ key server.key
 dh dh.pem
 topology subnet
 server 10.8.0.0 255.255.255.0
-# ifconfig-pool-persist ipp.txt
+ifconfig-pool-persist ipp.txt
 push "redirect-gateway def1 bypass-dhcp"
 push "dhcp-option DNS 8.8.8.8"
 push "dhcp-option DNS 8.8.4.4"
@@ -182,9 +182,9 @@ user nobody
 group nogroup
 persist-key
 persist-tun
-# log /var/log/openvpn.log
-# status /var/log/openvpn-status.log
-verb 0
+log /var/log/openvpn.log
+status /var/log/openvpn-status.log
+verb 6
 explicit-exit-notify 1
 auth-user-pass-verify /etc/openvpn/auth_script.sh via-file
 client-connect /etc/openvpn/accounting_script.sh
@@ -193,17 +193,6 @@ script-security 2
 management 127.0.0.1 7505
 --verify-client-cert none
 username-as-common-name
-
-ifconfig-pool-persist /dev/null
-log /dev/null
-status /dev/null
-
-max-clients 512
-sndbuf 524288
-rcvbuf 524288
-push "sndbuf 524288"
-push "rcvbuf 524288"
-inactive 3600
 EOF
 
 # Enable IP forwarding
@@ -291,66 +280,90 @@ SERVER_IP=\"$IP\"
 # URL=\"https://141f-36-50-12-105.ngrok-free.app/test/\"
 URL=\"http://\$HOST_SERVER/v1/users/api/bandwidth/\"
 
+# Log file
+LOG_FILE=\"/var/log/openvpn_monitor.log\"
+
+# Function to log messages
+log() {
+    echo \"\$(date '+%Y-%m-%d %H:%M:%S') - \$1\" >> \"\$LOG_FILE\"
+}
+
 # Function to fetch data from OpenVPN management interface
 fetch_openvpn_data() {
-    response=\$( (echo -e "status 2\\n"; sleep 1; echo -e "exit\\n") | nc \$HOST \$PORT)
-    echo "\$response"
+    response=\$( (echo -e \"status 2\n\"; sleep 1; echo -e \"exit\n\") | nc \$HOST \$PORT)
+    log \"Raw response from OpenVPN: \$response\"
+    echo \"\$response\"
 }
 
 # Function to parse the data and convert it to JSON format
 parse_data_to_json() {
-    response="\$1"
-    clients=\$(echo "\$response" | grep -A 100 "CLIENT_LIST" | grep -B 100 "ROUTING_TABLE" | grep "CLIENT_LIST")
+    response=\"\$1\"
+    clients=\$(echo \"\$response\" | grep -A 100 \"CLIENT_LIST\" | grep -B 100 \"ROUTING_TABLE\" | grep \"CLIENT_LIST\")
 
-    json="["
+    json=\"[\"
     first_entry=true
 
     # Skip the first line, which is the header
     while IFS= read -r line; do
-        [[ -z "\$line" ]] && continue
+        [[ -z \"\$line\" ]] && continue
 
         # Exclude the header line
-        if [[ "\$line" == "CLIENT_LIST,"* ]]; then
-            IFS=',' read -r -a data <<< "\$line"
+        if [[ \"\$line\" == \"CLIENT_LIST,\"* ]]; then
+            IFS=',' read -r -a data <<< \"\$line\"
 
-            common_name="\${data[1]}"
-            real_address="\${data[2]}"
-            virtual_address="\${data[3]}"
-            bytes_received="\${data[5]:-0}"  # Default to 0 if not set
-            bytes_sent="\${data[6]:-0}"      # Default to 0 if not set
-            connected_since="\${data[7]}"
+            common_name=\"\${data[1]}\"
+            real_address=\"\${data[2]}\"
+            virtual_address=\"\${data[3]}\"
+            bytes_received=\"\${data[5]:-0}\"  # Default to 0 if not set
+            bytes_sent=\"\${data[6]:-0}\"      # Default to 0 if not set
+            connected_since=\"\${data[7]}\"
 
-            if [ "\$first_entry" = true ]; then
+            if [ \"\$first_entry\" = true ]; then
                 first_entry=false
             else
-                json="\${json},"
+                json=\"\${json},\"
             fi
 
-            json="\${json}{\\\"common_name\\\":\\\"\${common_name}\\\",\\\"real_address\\\":\\\"\${real_address}\\\",\\\"virtual_address\\\":\\\"\${virtual_address}\\\",\\\"bytes_received\\\":\${bytes_received},\\\"bytes_sent\\\":\${bytes_sent},\\\"server_ip\\\":\\\"\${SERVER_IP}\\\",\\\"connected_since\\\":\\\"\${connected_since}\\\"}"
+            json=\"\${json}{\\\"common_name\\\":\\\"\${common_name}\\\",\\\"real_address\\\":\\\"\${real_address}\\\",\\\"virtual_address\\\":\\\"\${virtual_address}\\\",\\\"bytes_received\\\":\${bytes_received},\\\"bytes_sent\\\":\${bytes_sent},\\\"server_ip\\\":\\\"\${SERVER_IP}\\\",\\\"connected_since\\\":\\\"\${connected_since}\\\"}\"
         fi
-    done <<< "\$clients"
+    done <<< \"\$clients\"
 
-    json="\${json}]"
-    echo "\$json"
+    json=\"\${json}]\" 
+    echo \"\$json\"
 }
 
 # Function to send JSON data to the URL via POST request
 send_data_to_url() {
-    json_data="\$1"
+    json_data=\"\$1\"
+
+    # Log the JSON data being sent
+    log \"Sending data to API: \$json_data\"
 
     # Send POST request
-    response=\$(curl -X POST "\$URL" -H "Content-Type: application/json" -d "\$json_data")
+    response=\$(curl -X POST \"\$URL\" -H \"Content-Type: application/json\" -d \"\$json_data\")
+
+    # Log the response from the API
+    log \"API response: \$response\"
 }
 
 # Main script execution
+log \"Script execution started.\"
 openvpn_data=\$(fetch_openvpn_data)
 
-if [[ -z "\$openvpn_data" ]]; then
-    echo "No data received from OpenVPN management interface."
+if [[ -z \"\$openvpn_data\" ]]; then
+    log \"No data received from OpenVPN management interface.\"
 else
-    json_payload=\$(parse_data_to_json "\$openvpn_data")
-    send_data_to_url "\$json_payload"
+    json_payload=\$(parse_data_to_json \"\$openvpn_data\")
+    
+    # Log the final JSON payload for debugging
+    log \"Final JSON payload: \$json_payload\"
+
+    # Send the data to the URL
+    send_data_to_url \"\$json_payload\"
 fi
+
+log \"Script execution completed.\"
+"
 
 # Create the user_monitor script file
 echo "$user_monitor_content" > "$user_monitor_path"
@@ -365,57 +378,76 @@ echo "User monitoring script setup complete with cron job."
 server_log_path="/usr/local/bin/serverLog.sh"
 
 server_log_content="#!/bin/bash
-#!/bin/bash
 
 # URL to push the data
-HOST_SERVER="162.243.163.199:8000"
-SERVER_IP="$IP"
-# HOST_SERVER="b3fa-36-50-12-105.ngrok-free.app"
-URL="http://\$HOST_SERVER/v1/server/api/status/"
+HOST_SERVER=\"162.243.163.199:8000\"
+SERVER_IP=\"$IP\"
+# HOST_SERVER=\"b3fa-36-50-12-105.ngrok-free.app\"
+URL=\"http://\$HOST_SERVER/v1/server/api/status/\"
+
+# Log file
+LOG_FILE=\"/var/log/serverLog_monitor.log\"
+
+# Function to log messages
+log() {
+    echo \"\$(date '+%Y-%m-%d %H:%M:%S') - \$1\" >> \"\$LOG_FILE\"
+}
 
 # Function to get connected users
 get_connected_users() {
-    connected_users=\$( (echo -e "status 2\\n"; sleep 1; echo -e "exit\\n") | nc 127.0.0.1 7505 | grep "CLIENT_LIST" | wc -l)
-    echo "\$connected_users"
+    connected_users=\$( (echo -e \"status 2\n\"; sleep 1; echo -e \"exit\n\") | nc 127.0.0.1 7505 | grep \"CLIENT_LIST\" | wc -l)
+    log \"Connected users: \$connected_users\"
+    echo \"\$connected_users\"
 }
 
 # Function to get uptime details
 get_uptime_details() {
     uptime_details=\$(uptime)
-    echo "\$uptime_details"
+    log \"Uptime details: \$uptime_details\"
+    echo \"\$uptime_details\"
 }
 
 # Function to prepare JSON payload
 prepare_json_payload() {
-    connected_users="\$1"
-    uptime_details="\$2"
-    server_ip="\$SERVER_IP"
+    connected_users=\"\$1\"
+    uptime_details=\"\$2\"
+    server_ip=\"\$SERVER_IP\"
 
-    json_payload="["
-    json_payload="\${json_payload}{\\\"server_ip\\\":\\\"\${server_ip}\\\",\\\"connected_users\\\":\\\"\${connected_users}\\\",\\\"uptime_details\\\":\\\"\${uptime_details}\\\"}"
-    json_payload="\${json_payload}]"
-    echo "\$json_payload"
+    json_payload=\"[\"
+    json_payload=\"\${json_payload}{\\\"server_ip\\\":\\\"\${server_ip}\\\",\\\"connected_users\\\":\\\"\${connected_users}\\\",\\\"uptime_details\\\":\\\"\${uptime_details}\\\"}\"
+    json_payload=\"\${json_payload}]\" 
+    echo \"\$json_payload\"
 }
 
 # Function to send JSON data to the URL via POST request
 send_data_to_url() {
-    json_data="\$1"
+    json_data=\"\$1\"
+
+    # Log the JSON data being sent
+    log \"Sending data to API: \$json_data\"
 
     # Send POST request
-    response=\$(curl -X POST "\$URL" -H "Content-Type: application/json" -d "\$json_data")
+    response=\$(curl -X POST \"\$URL\" -H \"Content-Type: application/json\" -d \"\$json_data\")
+
+    # Log the response from the API
+    log \"API response: \$response\"
 }
 
 # Main script execution
+log \"Script execution started.\"
 
 # Fetch connected users and uptime details
 connected_users=\$(get_connected_users)
 uptime_details=\$(get_uptime_details)
 
 # Prepare JSON payload
-json_payload=\$(prepare_json_payload "\$connected_users" "\$uptime_details")
+json_payload=\$(prepare_json_payload \"\$connected_users\" \"\$uptime_details\")
 
 # Send the data to the URL
-send_data_to_url "\$json_payload"
+send_data_to_url \"\$json_payload\"
+
+log \"Script execution completed.\"
+"
 
 # Create the serverLog script file
 echo "$server_log_content" > "$server_log_path"
