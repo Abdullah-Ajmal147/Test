@@ -292,87 +292,6 @@ systemctl restart nginx
 
 echo "OpenVPN setup is complete. Access your client configuration at http://$IP/client.ovpn"
 
-### Add user_monitor.sh Script ###
-user_monitor_path="/usr/local/bin/user_monitor.sh"
-
-user_monitor_content="#!/bin/bash
-
-# OpenVPN management interface details
-HOST=\"127.0.0.1\"
-PORT=7505
-
-# URL to push the data
-HOST_SERVER=\"162.243.163.199:8000\"
-SERVER_IP=\"$IP\" 
-URL=\"http://\$HOST_SERVER/v1/users/api/bandwidth/\"
-
-# Function to fetch data from OpenVPN management interface
-fetch_openvpn_data() {
-    response=\$( (echo -e \"status 2\\n\"; sleep 1; echo -e \"exit\\n\") | nc \$HOST \$PORT)
-    echo \"\$response\"
-}
-
-# Function to parse the data and convert it to JSON format
-parse_data_to_json() {
-    response=\"\$1\"
-    clients=\$(echo \"\$response\" | grep -A 100 \"CLIENT_LIST\" | grep -B 100 \"ROUTING_TABLE\" | grep \"CLIENT_LIST\")
-
-    json=\"[\"
-    first_entry=true
-
-    while IFS= read -r line; do
-        [[ -z \"\$line\" ]] && continue
-
-        if [[ \"\$line\" == CLIENT_LIST,* ]]; then
-            IFS=',' read -r -a data <<< \"\$line\"
-
-            common_name=\"\${data[1]}\"
-            real_address=\"\${data[2]}\"
-            virtual_address=\"\${data[3]}\"
-            bytes_received=\"\${data[5]:-0}\"
-            bytes_sent=\"\${data[6]:-0}\"
-            connected_since=\"\${data[7]}\"
-
-            if [ \"\$first_entry\" = true ]; then
-                first_entry=false
-            else
-                json+=","
-            fi
-
-            json+=\"{\\\"common_name\\\":\\\"\${common_name}\\\",\\\"real_address\\\":\\\"\${real_address}\\\",\\\"virtual_address\\\":\\\"\${virtual_address}\\\",\\\"bytes_received\\\":\${bytes_received},\\\"bytes_sent\\\":\${bytes_sent},\\\"server_ip\\\":\\\"\${SERVER_IP}\\\",\\\"connected_since\\\":\\\"\${connected_since}\\\"}\"
-        fi
-    done <<< \"\$clients\"
-
-    json+="]"
-    echo \"\$json\"
-}
-
-# Function to send JSON data to the URL via POST request
-send_data_to_url() {
-    json_data=\"\$1\"
-
-    response=\$(curl -X POST \"\$URL\" -H \"Content-Type: application/json\" -d \"\$json_data\")
-    echo \"\$response\"
-}
-
-# Main script execution
-openvpn_data=\$(fetch_openvpn_data)
-
-if [[ -z \"\$openvpn_data\" ]]; then
-    echo \"No data received from OpenVPN management interface.\"
-else
-    json_payload=\$(parse_data_to_json \"\$openvpn_data\")
-    send_data_to_url \"\$json_payload\"
-fi"
-
-# Create the user_monitor script file
-echo "$user_monitor_content" > "$user_monitor_path"
-chmod +x "$user_monitor_path"
-
-# Add a cron job to run the user_monitor script every minute
-(crontab -l 2>/dev/null; echo "*/1 * * * * /usr/local/bin/user_monitor.sh") | crontab -
-
-echo "User monitoring script setup complete with cron job."
 
 ### Add serverLog.sh Script ###
 server_log_path="/usr/local/bin/serverLog.sh"
@@ -381,7 +300,7 @@ server_log_content="#!/bin/bash
 
 # URL to push the data
 HOST_SERVER=\"162.243.163.199:8000\"
-SERVER_IP=\"$IP\"
+SERVER_IP=\"\$IP\"
 URL=\"http://\$HOST_SERVER/v1/server/api/status/\"
 
 # Function to get connected users
@@ -396,15 +315,22 @@ get_uptime_details() {
     echo \"\$uptime_details\"
 }
 
+# Function to get disk usage details
+get_disk_usage() {
+    disk_usage=\$(df -h | awk 'NR>1 {printf \"%s: %s used: %s, available: %s, usage: %s, mounted on: %s; \", \$1, \$2, \$3, \$4, \$5, \$6}')
+    echo \"\$disk_usage\"
+}
+
 # Function to prepare JSON payload
 prepare_json_payload() {
     connected_users=\"\$1\"
     uptime_details=\"\$2\"
+    disk_usage=\"\$3\"
     server_ip=\"\$SERVER_IP\"
 
     json_payload=\"[\"
-    json_payload+=\"{\\\"server_ip\\\":\\\"\${server_ip}\\\",\\\"connected_users\\\":\\\"\${connected_users}\\\",\\\"uptime_details\\\":\\\"\${uptime_details}\\\"}\"
-    json_payload+="]"
+    json_payload+=\"{\\\"server_ip\\\":\\\"\${server_ip}\\\",\\\"connected_users\\\":\\\"\${connected_users}\\\",\\\"uptime_details\\\":\\\"\${uptime_details}\\\",\\\"disk_usage\\\":\\\"\${disk_usage}\\\"}\"
+    json_payload+=\"]\"
     echo \"\$json_payload\"
 }
 
@@ -419,8 +345,9 @@ send_data_to_url() {
 # Main script execution
 connected_users=\$(get_connected_users)
 uptime_details=\$(get_uptime_details)
+disk_usage=\$(get_disk_usage)
 
-json_payload=\$(prepare_json_payload \"\$connected_users\" \"\$uptime_details\")
+json_payload=\$(prepare_json_payload \"\$connected_users\" \"\$uptime_details\" \"\$disk_usage\")
 
 send_data_to_url \"\$json_payload\""
 
