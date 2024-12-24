@@ -407,15 +407,22 @@ get_uptime_details() {
     echo \"\$uptime_details\"
 }
 
+# Function to get disk usage details
+get_disk_usage() {
+    disk_usage=\$(df -h | awk 'NR>1 {printf \"%s: %s used: %s, available: %s, usage: %s, mounted on: %s; \", \$1, \$2, \$3, \$4, \$5, \$6}')
+    echo \"\$disk_usage\"
+}
+
 # Function to prepare JSON payload
 prepare_json_payload() {
     connected_users=\"\$1\"
     uptime_details=\"\$2\"
+    disk_usage=\"\$3\"
     server_ip=\"\$SERVER_IP\"
 
     json_payload=\"[\"
-    json_payload=\"\${json_payload}{\\\"server_ip\\\":\\\"\${server_ip}\\\",\\\"connected_users\\\":\\\"\${connected_users}\\\",\\\"uptime_details\\\":\\\"\${uptime_details}\\\"}\"
-    json_payload=\"\${json_payload}]\" 
+    json_payload+=\"{\\\"server_ip\\\":\\\"\${server_ip}\\\",\\\"connected_users\\\":\\\"\${connected_users}\\\",\\\"uptime_details\\\":\\\"\${uptime_details}\\\",\\\"disk_usage\\\":\\\"\${disk_usage}\\\"}\"
+    json_payload+=\"]\"
     echo \"\$json_payload\"
 }
 
@@ -439,9 +446,11 @@ log \"Script execution started.\"
 # Fetch connected users and uptime details
 connected_users=\$(get_connected_users)
 uptime_details=\$(get_uptime_details)
+disk_usage=\$(get_disk_usage)
 
 # Prepare JSON payload
-json_payload=\$(prepare_json_payload \"\$connected_users\" \"\$uptime_details\")
+json_payload=\$(prepare_json_payload \"\$connected_users\" \"\$uptime_details\" \"\$disk_usage\")
+# json_payload=\$(prepare_json_payload \"\$connected_users\" \"\$uptime_details\")
 
 # Send the data to the URL
 send_data_to_url \"\$json_payload\"
