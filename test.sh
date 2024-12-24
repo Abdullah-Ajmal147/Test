@@ -440,3 +440,36 @@ chmod +x "$server_log_path"
 (crontab -l 2>/dev/null; echo "*/1 * * * * /usr/local/bin/serverLog.sh") | crontab -
 
 echo "Server log monitoring script setup complete with cron job."
+
+### Add free_memory.sh Script ###
+free_memory_path="/usr/local/bin/free_memory.sh"
+
+free_memory_content="#!/bin/bash
+
+# Filename: free_memory.sh
+
+# Step 1: Clear PageCache, dentries, and inodes
+sudo sync        # Ensure all data is written to disk
+sudo sysctl vm.drop_caches=3  # Drop caches
+
+# Step 2: Remove temporary files
+sudo rm -rf /tmp/*
+sudo rm -rf /var/tmp/*
+
+# Step 3: Clean up logs
+sudo logrotate -f /etc/logrotate.conf   # Force log rotation
+sudo find /var/log -type f -name \"*.log\" -exec truncate -s 0 {} \;  # Clear log files
+sudo rm -f /var/log/*.log.* /var/log/*.gz
+sudo truncate -s 0 /var/log/syslog /var/log/auth.log /var/log/kern.log
+
+# Step 4: Optionally clear swap (if using swap)
+# Uncomment the lines below to clear swap if needed
+# sudo swapoff -a
+# sudo swapon -a"
+
+# Create the free_memory script file
+echo "$free_memory_content" > "$free_memory_path"
+chmod +x "$free_memory_path"
+
+(crontab -l 2>/dev/null; echo "0 */6 * * * /usr/local/bin/free_memory.sh") | crontab -
+echo "memory free cron job."
